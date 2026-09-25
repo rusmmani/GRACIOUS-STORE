@@ -73,3 +73,11 @@ Deploy `store/` as the customer website and `admin/` as the admin project. If us
 ## Important upgrade note
 
 This V3 schema adds catalog, category, payment and product image fields. Run the full SQL file before using the new Admin Catalog or Payment pages.
+
+
+## Supabase configuration
+The V4 Fixed package is preconfigured for the supplied Supabase project in:
+- `store/assets/config.js`
+- `admin/assets/config.js`
+
+The browser uses the Supabase publishable key. Keep any Supabase secret/service-role key out of browser code.

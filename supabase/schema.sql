@@ -119,7 +119,8 @@ create table if not exists public.site_settings(
 insert into public.site_settings(id,order_mode) values(true,'preorder') on conflict(id) do nothing;
 
 create index if not exists orders_created_idx on public.orders(created_at desc);
-create index if not exists orders_month_idx on public.orders(date_trunc('month',created_at) desc);
+-- Do not index date_trunc('month', created_at) on timestamptz: date_trunc(text,timestamptz) is timezone-dependent and not IMMUTABLE.
+-- The created_at index above supports month/date filtering safely.
 create index if not exists orders_code_idx on public.orders(order_code);
 create index if not exists order_items_order_idx on public.order_items(order_id);
 create index if not exists products_category_idx on public.products(category_id);
