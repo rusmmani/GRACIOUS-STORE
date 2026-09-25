@@ -41,3 +41,17 @@ nav{box-shadow:0 10px 50px #0004}.icon:hover{box-shadow:0 12px 30px #fff1}.loade
 @media(max-width:700px){.store-preferences{margin-left:auto}.currency-popover{right:-35px}.mini-pop{right:0}.pref-trigger{padding:7px 8px}}
 
 .payment-proof-preview{margin-top:10px;display:grid;gap:6px}.payment-proof-preview img{width:100%;max-width:360px;max-height:300px;object-fit:contain;border:1px solid rgba(255,255,255,.12);border-radius:14px}.payment-proof-preview span{font-size:12px;opacity:.65;overflow:hidden;text-overflow:ellipsis}
+
+/* V12 — store product preview + cart beside currency */
+.collection-cta{display:flex;justify-content:center;margin-top:28px}
+.collection-cta .btn{min-width:190px;text-align:center}
+.actions{display:flex;align-items:center;gap:7px}
+.actions .store-preferences{margin-right:0}
+.store-cart-link{display:inline-flex!important;align-items:center;gap:7px;white-space:nowrap}
+.store-cart-link .cart-count{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:#eee;color:#090909;font-size:9px;font-weight:900}
+@media(max-width:700px){
+  .actions{gap:5px}
+  .store-cart-link{padding:8px 10px!important}
+  .store-cart-link .cart-word{display:none}
+  .collection-cta{margin-top:22px}
+}
