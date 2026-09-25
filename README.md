@@ -1,83 +1,137 @@
-# GRACIOUS Store — Supabase V3
+# GRACIOUS STORE — Supabase Admin + Storage
 
-## What was added
+## Yang sudah tersedia
+- Admin dashboard login Supabase Auth.
+- Upload foto produk langsung dari Admin ke Supabase Storage bucket `product-images`.
+- Preview foto produk sebelum disimpan.
+- Foto yang sudah disimpan otomatis masuk ke `products.image_urls` dan tampil di Store.
+- Upload QR/payment image ke bucket `payment-assets`.
+- **Settings** di Admin untuk mengubah:
+  - nama admin
+  - foto profil admin
+  - nama store
+  - tagline
+  - deskripsi
+  - logo store
+  - email, telepon, WhatsApp, Instagram, alamat
+- Logo/nama store dari database otomatis dipakai di Store.
+- Store tetap memiliki pilihan bahasa ID/EN dan mata uang IDR/USD.
 
-### Admin Catalog
-- Add/edit products from dashboard.
-- Product name, price, category, premium description, short description.
-- Material and printing fields.
-- Custom sizes per product.
-- Product-level ORDER / PRE-ORDER.
-- Product badge and active/inactive switch.
-- Multiple product image uploads through Supabase Storage.
-- Existing image URLs can also be kept/added.
-- Add and activate/deactivate categories.
+## Instal / Setup Supabase
 
-### Payment Control
-Admin can add:
-- Bank transfer
-- QRIS + QR image upload
-- E-wallet
-- Account / wallet number
-- Account holder
-- Instructions
-- Display order
-- ON/OFF
+### 1. Buat project Supabase
+Buka Supabase dan buat project baru.
 
-Active payment methods appear at checkout. The selected payment method is saved on the order.
+### 2. Jalankan SQL
+Masuk ke:
+`Supabase Dashboard → SQL Editor → New query`
 
-### Orders
-- Orders grouped by month.
-- Status update + tracking number.
-- WhatsApp order message.
-- Completed-order WhatsApp message.
+Copy seluruh isi:
+`supabase/schema.sql`
 
-### Store
-- Product catalog is read dynamically from Supabase.
-- Product detail uses the admin's images, description, sizes, price and product mode.
-- Categories are dynamic.
-- Checkout displays active payment methods.
+lalu klik **Run**.
 
-## Supabase setup
+SQL ini akan membuat/memperbarui:
+- tabel products, categories, orders, payments, site settings
+- tabel `store_profile`
+- field profil admin `full_name` dan `avatar_url`
+- RLS/policy
+- Storage bucket:
+  - `product-images`
+  - `payment-assets`
+  - `store-assets`
 
-1. Create a Supabase project.
-2. Open **SQL Editor**.
-3. Run the complete `supabase/schema.sql` file.
-4. Create an admin user under **Authentication → Users**.
-5. Put the user's UUID into:
+> Jika database lama sudah dipakai, SQL ini menggunakan `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` pada bagian upgrade yang relevan. Jangan menghapus tabel lama.
+
+### 3. Buat user admin
+Masuk:
+`Supabase Dashboard → Authentication → Users → Add user`
+
+Buat email + password admin.
+
+Salin **User UID** admin tersebut.
+
+Di SQL Editor jalankan:
 
 ```sql
-insert into public.profiles(id,role)
-values('ADMIN_UUID','admin')
+insert into public.profiles(id, role, full_name)
+values('USER_UID_ANDA', 'admin', 'Nama Admin')
 on conflict(id) do update set role='admin';
 ```
 
-6. Put the Supabase Project URL and publishable/anon key in both:
-- `store/assets/config.js`
+Ganti `USER_UID_ANDA` dengan UID user Supabase.
+
+### 4. Isi konfigurasi frontend
+Buka:
 - `admin/assets/config.js`
-
-Use the browser-safe publishable/anon key. Never put a Supabase service-role key in these files.
-
-## Supabase Storage
-
-The SQL creates two public buckets automatically:
-- `product-images`
-- `payment-assets`
-
-Only authenticated admin users can upload/update/delete. Public users can read the public files.
-
-## Vercel
-
-Deploy `store/` as the customer website and `admin/` as the admin project. If using one Git repository, create two Vercel projects and set Root Directory to the corresponding folder.
-
-## Important upgrade note
-
-This V3 schema adds catalog, category, payment and product image fields. Run the full SQL file before using the new Admin Catalog or Payment pages.
-
-
-## Supabase configuration
-The V4 Fixed package is preconfigured for the supplied Supabase project in:
 - `store/assets/config.js`
-- `admin/assets/config.js`
 
-The browser uses the Supabase publishable key. Keep any Supabase secret/service-role key out of browser code.
+Isi:
+
+```js
+window.GRACIOUS_CONFIG = {
+  supabaseUrl: 'https://PROJECT_ID.supabase.co',
+  supabaseAnonKey: 'SUPABASE_ANON_KEY'
+};
+```
+
+Gunakan **anon/publishable key**, jangan pernah memasukkan `service_role` key ke HTML/JS.
+
+### 5. Login Admin
+Buka:
+`admin/login.html`
+
+Login dengan akun Supabase yang sudah diberi role `admin`.
+
+### 6. Upload produk
+Di Admin:
+`Catalog → + PRODUCT`
+
+Isi data produk → pilih **Upload Gambar Produk** → gambar langsung muncul sebagai preview → klik **SAVE PRODUCT**.
+
+Alurnya:
+
+`Browser → Supabase Storage/product-images → Public URL → products.image_urls → Store`
+
+### 7. Ubah profil admin
+Di:
+`Settings → Admin Profile`
+
+Bisa mengubah nama dan foto profil. Foto masuk ke:
+`store-assets/admin/USER_ID/...`
+
+### 8. Ubah profil store
+Di:
+`Settings → Store Profile`
+
+Bisa mengubah nama, tagline, deskripsi, logo, kontak dan alamat. Logo masuk ke:
+`store-assets/store/...`
+
+Setelah disimpan, Store akan membaca profil tersebut langsung dari Supabase.
+
+## Deploy Vercel
+
+Struktur yang bisa dideploy:
+
+```text
+store/
+admin/
+supabase/
+README.md
+```
+
+Jika ingin URL terpisah:
+- Store → deploy folder `store`
+- Admin → deploy folder `admin`
+
+Jika menggunakan satu project Vercel, root dapat berisi keduanya dan URL bisa diarahkan ke `/store` dan `/admin`.
+
+## Penting tentang Storage
+
+Bucket gambar dibuat **public untuk read**, tetapi upload/update/delete hanya boleh dilakukan oleh user yang memiliki `profiles.role = 'admin'`.
+
+Jadi customer/store tidak dapat upload gambar lewat frontend.
+
+
+## Supabase credentials
+The provided Supabase project URL and publishable key are embedded directly in the admin/store JavaScript. No service_role key is used.
