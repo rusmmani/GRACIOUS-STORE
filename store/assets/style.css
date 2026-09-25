@@ -21,3 +21,21 @@ nav{box-shadow:0 10px 50px #0004}.icon:hover{box-shadow:0 12px 30px #fff1}.loade
 @media(max-width:560px){.pref-group{padding:2px}.pref-group button{padding:6px 7px}.store-preferences{gap:4px}}
 
 @media(max-width:700px){nav{flex-wrap:wrap;gap:8px}.navlinks{order:4;width:100%;justify-content:center;gap:14px;margin:0;overflow:auto;padding-top:2px}.actions{margin-left:auto}.store-preferences{margin-left:auto}}
+/* Store language + currency popups */
+.store-preferences{display:flex;align-items:center;gap:6px;margin-right:7px;position:relative;z-index:200}
+.pref-group{position:relative}
+.pref-trigger{display:flex;align-items:center;gap:6px;border:1px solid #292929;background:#111;color:#ddd;border-radius:999px;padding:8px 10px;font-size:9px;font-weight:800;letter-spacing:.05em}
+.pref-trigger i{font-style:normal;color:#777;font-size:11px}
+.mini-pop,.currency-popover{position:absolute;right:0;top:calc(100% + 8px);display:none;background:#101010;border:1px solid #292929;border-radius:16px;padding:6px;box-shadow:0 20px 50px #0009;min-width:145px}
+.mini-pop.open,.currency-popover.open{display:grid}
+.mini-pop button{border:0;background:transparent;color:#aaa;text-align:left;padding:10px 11px;border-radius:10px;font-size:10px;cursor:pointer}
+.mini-pop button:hover,.mini-pop button.active{background:#eee;color:#090909}
+.currency-popover{width:220px;max-height:360px;overflow:auto;gap:3px}
+.currency-option{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;color:#bbb;text-align:left;padding:9px;border-radius:10px;cursor:pointer}
+.currency-option:hover,.currency-option.active{background:#eee;color:#090909}
+.currency-flag{font-size:17px;width:23px;text-align:center}
+.currency-option span:last-child{display:grid;gap:2px}
+.currency-option b{font-size:10px;letter-spacing:.06em}
+.currency-option small{font-size:8px;color:#777}
+.currency-option.active small{color:#555}
+@media(max-width:700px){.store-preferences{margin-left:auto}.currency-popover{right:-35px}.mini-pop{right:0}.pref-trigger{padding:7px 8px}}
