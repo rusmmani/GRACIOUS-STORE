@@ -10,3 +10,14 @@ nav{box-shadow:0 10px 50px #0004}.icon:hover{box-shadow:0 12px 30px #fff1}.loade
 .input:focus,input:focus,textarea:focus,select:focus{border-color:#666!important;box-shadow:0 0 0 4px #fff0,0 0 30px #fff08;transition:.3s var(--ease)}.toast{backdrop-filter:blur(16px)}
 /* V3 payment UI */
 .payment-options{display:grid;gap:10px;margin-top:5px}.payment-option{display:block;border:1px solid #2a2a2a;background:#111;border-radius:16px;cursor:pointer;transition:.35s cubic-bezier(.2,.8,.2,1);overflow:hidden}.payment-option:hover{transform:translateY(-2px);border-color:#555}.payment-option.selected{border-color:#f1f1f1;box-shadow:0 0 0 1px #f1f1f1,0 15px 45px #0008}.payment-option input{display:none}.payment-option-content{display:flex;align-items:center;gap:12px;padding:12px}.payment-option-content img{width:58px;height:58px;object-fit:contain;border-radius:10px;background:#080808}.payment-option-content strong,.payment-option-content span,.payment-option-content small{display:block}.payment-option-content span{font-size:12px;margin-top:3px}.payment-option-content small{color:#777;margin-top:2px}.empty-state{padding:35px;text-align:center;border:1px dashed #2b2b2b;border-radius:18px;color:#777}.payment-option-content>div{min-width:0}
+
+.store-preferences{display:flex;align-items:center;gap:7px;margin-right:8px;flex-wrap:wrap}
+.pref-group{display:flex;align-items:center;gap:3px;border:1px solid #252525;background:#0f0f0f;border-radius:999px;padding:3px}
+.pref-label{display:none}
+.pref-group button{border:0;background:transparent;color:#777;border-radius:999px;padding:6px 8px;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer;transition:.25s ease}
+.pref-group button:hover{color:#eee}
+.pref-group button.active{background:#eee;color:#080808;box-shadow:0 5px 15px #fff12}
+@media(max-width:850px){.store-preferences{order:3;width:100%;justify-content:flex-end;margin:4px 0 0}.actions{flex-wrap:wrap;justify-content:flex-end}}
+@media(max-width:560px){.pref-group{padding:2px}.pref-group button{padding:6px 7px}.store-preferences{gap:4px}}
+
+@media(max-width:700px){nav{flex-wrap:wrap;gap:8px}.navlinks{order:4;width:100%;justify-content:center;gap:14px;margin:0;overflow:auto;padding-top:2px}.actions{margin-left:auto}.store-preferences{margin-left:auto}}

@@ -5,7 +5,62 @@ const FALLBACK_PRODUCTS=[
 {id:'gracious-white',name:'GRACIOUS White Graphic Tee',price:145000,cat:'essentials',badge:'Essential',order_mode:'order',sizes:['S','M','L','XL'],image_urls:['assets/products/entangled-1.jpg'],description:'Essential graphic tee dengan pendekatan clean dan versatile. Matt Cotton 24s menghadirkan body kain yang nyaman dan berstruktur, dipadukan dengan Plastisol Screen Printing untuk hasil graphic yang tajam dan premium.',short_description:'Clean essential tee untuk daily rotation.',material:'Matt Cotton 24s',printing:'Plastisol Screen Printing'}
 ];
 let PRODUCTS=[...FALLBACK_PRODUCTS],CATEGORIES=[],PAYMENT_METHODS=[];
-const SHIPPING=15000;const fmt=n=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(Number(n)||0);const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const SHIPPING=15000;
+const STORE_I18N={
+  id:{
+    shop:'Toko',newDrop:'New Drop',essentials:'Essentials',track:'Lacak Pesanan',bag:'Tas',
+    all:'Semua',buy:'BELI SEKARANG ↗',preorder:'PRE-ORDER ↗',shopPre:'SHOP PRE-ORDER ↗',
+    shopCollection:'SHOP COLLECTION ↗',explorePre:'EXPLORE PRE-ORDER ↗',exploreDrop:'EXPLORE THE DROP ↗',
+    sold:'SOLD OUT',available:(n,size)=>`${n} pcs tersedia untuk size ${size}.`,out:'Size ini sedang habis.',
+    currency:'Mata Uang',language:'Bahasa',premium:'Premium Hand Feel',
+    order:'ORDER',orderNow:'ORDER NOW ↗',preorderItem:'Pre-order item. Detail pengiriman akan dikonfirmasi admin setelah pesanan diterima.',
+    readyItem:'Ready to order. Pesanan akan diproses setelah konfirmasi admin.'
+  },
+  en:{
+    shop:'Shop',newDrop:'New Drop',essentials:'Essentials',track:'Track Order',bag:'Bag',
+    all:'All',buy:'BUY NOW ↗',preorder:'PRE-ORDER ↗',shopPre:'SHOP PRE-ORDER ↗',
+    shopCollection:'SHOP COLLECTION ↗',explorePre:'EXPLORE PRE-ORDER ↗',exploreDrop:'EXPLORE THE DROP ↗',
+    sold:'SOLD OUT',available:(n,size)=>`${n} pcs available in size ${size}.`,out:'This size is sold out.',
+    currency:'Currency',language:'Language',premium:'Premium Hand Feel',
+    order:'ORDER',orderNow:'ORDER NOW ↗',preorderItem:'Pre-order item. Shipping details will be confirmed by admin after your order is received.',
+    readyItem:'Ready to order. Your order will be processed after admin confirmation.'
+  }
+};
+const CURRENCY_CONFIG={
+  IDR:{locale:'id-ID',symbol:'Rp',rate:1,decimals:0},
+  USD:{locale:'en-US',symbol:'$',rate:1/16000,decimals:2}
+};
+let STORE_LANGUAGE=localStorage.getItem('graciousLanguage')||'id';
+let STORE_CURRENCY=localStorage.getItem('graciousCurrency')||'IDR';
+const fmt=n=>new Intl.NumberFormat(CURRENCY_CONFIG[STORE_CURRENCY].locale,{style:'currency',currency:STORE_CURRENCY,maximumFractionDigits:CURRENCY_CONFIG[STORE_CURRENCY].decimals}).format((Number(n)||0)*CURRENCY_CONFIG[STORE_CURRENCY].rate);const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+function t(key,...args){const v=STORE_I18N[STORE_LANGUAGE]?.[key]??STORE_I18N.id[key]??key;return typeof v==='function'?v(...args):v}
+function applyStorePreferences(){
+  document.documentElement.lang=STORE_LANGUAGE;
+  document.querySelectorAll('[data-lang-id]').forEach(el=>{el.textContent=t(el.dataset.langId)});
+  document.querySelectorAll('[data-lang]').forEach(el=>el.classList.toggle('active',el.dataset.lang===STORE_LANGUAGE));
+  document.querySelectorAll('[data-currency]').forEach(el=>el.classList.toggle('active',el.dataset.currency===STORE_CURRENCY));
+  document.querySelectorAll('[data-currency-label]').forEach(el=>el.textContent=STORE_CURRENCY);
+  document.querySelectorAll('[data-money]').forEach(el=>{el.textContent=fmt(Number(el.dataset.money||0))});
+document.querySelectorAll('[data-order-cta]').forEach(el=>{
+  const pre=window.GRACIOUS_MODE==='preorder';
+  const key=pre?(el.dataset.preorderKey||'shopPre'):(el.dataset.orderKey||'shopCollection');
+  el.textContent=t(key);
+});
+const bag=document.querySelector('[data-bag-link]');if(bag)bag.setAttribute('aria-label',t('bag'));
+  const add=document.getElementById('add');
+  if(add&&!add.disabled){const p=window.__CURRENT_PRODUCT;if(p)add.textContent=p.preorder?t('preorder'):t('orderNow')}
+}
+function setLanguage(lang){if(!STORE_I18N[lang])return;STORE_LANGUAGE=lang;localStorage.setItem('graciousLanguage',lang);location.reload()}
+function setCurrency(currency){if(!CURRENCY_CONFIG[currency])return;STORE_CURRENCY=currency;localStorage.setItem('graciousCurrency',currency);location.reload()}
+function injectStoreControls(){
+  const nav=document.querySelector('nav');if(!nav||nav.querySelector('.store-preferences'))return;
+  const box=document.createElement('div');box.className='store-preferences';
+  box.innerHTML=`<div class="pref-group" aria-label="${t('language')}"><span class="pref-label">${t('language')}</span><button type="button" data-lang="id">ID</button><button type="button" data-lang="en">EN</button></div>
+  <div class="pref-group" aria-label="${t('currency')}"><span class="pref-label">${t('currency')}</span><button type="button" data-currency="IDR">IDR</button><button type="button" data-currency="USD">USD</button></div>`;
+  nav.querySelector('.actions')?.prepend(box);
+  box.addEventListener('click',e=>{const l=e.target.closest('[data-lang]');const c=e.target.closest('[data-currency]');if(l)setLanguage(l.dataset.lang);if(c)setCurrency(c.dataset.currency)});
+  applyStorePreferences();
+}
 const normalizeProduct=p=>({...p,cat:p.categories?.slug||p.cat||'',preorder:p.order_mode==='preorder',badge:p.badge||'',images:p.image_urls?.length?p.image_urls:['assets/logo.jpg'],desc:p.description||'',short:p.short_description||'',tag:[p.material,p.printing].filter(Boolean).join(' · '),stock_by_size:p.stock_by_size||{}});
 const byId=id=>PRODUCTS.find(p=>p.id===id)||PRODUCTS[0];
 function stockForSize(p,size){return Number(p?.stock_by_size?.[size]??0)}
@@ -21,7 +76,7 @@ window.GRACIOUS_MODE='preorder';
 async function loadStoreMode(){try{const sb=await supa();if(sb){const {data}=await sb.from('site_settings').select('order_mode').eq('id',true).maybeSingle();if(data?.order_mode)window.GRACIOUS_MODE=data.order_mode}}catch(e){}applyStoreMode()}
 function applyStoreMode(){const isPre=window.GRACIOUS_MODE==='preorder';document.documentElement.dataset.orderMode=window.GRACIOUS_MODE;document.querySelectorAll('[data-order-cta]').forEach(el=>el.textContent=isPre?(el.dataset.preorderText||'PRE-ORDER ↗'):(el.dataset.orderText||'ORDER NOW ↗'));document.querySelectorAll('[data-mode-label]').forEach(el=>el.textContent=isPre?'PRE-ORDER':'ORDER')}
 function setupButtonMotion(){document.querySelectorAll('button,.btn,.icon,.filter,.size').forEach(el=>{if(el.dataset.motionReady)return;el.dataset.motionReady='1';el.addEventListener('pointerdown',()=>el.classList.add('press'));el.addEventListener('pointerup',()=>setTimeout(()=>el.classList.remove('press'),120));el.addEventListener('pointerleave',()=>el.classList.remove('press'));el.addEventListener('click',e=>{if(el.disabled)return;const r=el.getBoundingClientRect(),ripple=document.createElement('i');ripple.className='ripple';ripple.style.left=e.clientX-r.left+'px';ripple.style.top=e.clientY-r.top+'px';el.appendChild(ripple);setTimeout(()=>ripple.remove(),650)})})}
-async function nav(){document.querySelectorAll('[data-cart]').forEach(e=>e.innerHTML='◰ <span class="cart-count" data-cart-count>0</span>');updateCartCount();const l=document.querySelector('.loader');window.addEventListener('load',()=>setTimeout(()=>l?.classList.add('hide'),320));await loadCatalog();await loadStoreMode();setupButtonMotion()}
+async function nav(){injectStoreControls();document.querySelectorAll('[data-cart]').forEach(e=>e.innerHTML='◰ <span class="cart-count" data-cart-count>0</span>');updateCartCount();const l=document.querySelector('.loader');window.addEventListener('load',()=>setTimeout(()=>l?.classList.add('hide'),320));await loadCatalog();await loadStoreMode();setupButtonMotion();applyStorePreferences()}
 function renderCards(items,el){if(!el)return;el.innerHTML=items.map(p=>`<a class="card reveal" href="product.html?id=${encodeURIComponent(p.id)}"><div class="media"><img src="${esc(p.images[0])}" alt="${esc(p.name)}" loading="lazy"></div><div class="badge">${esc(p.preorder?'PRE-ORDER':(p.badge||'ORDER'))}</div><h3>${esc(p.name)}</h3><p class="price">${fmt(p.price)}</p></a>`).join('');requestAnimationFrame(()=>document.querySelectorAll('.reveal').forEach((x,i)=>setTimeout(()=>x.classList.add('in'),Math.min(i*55,350))));setupButtonMotion()}
 function categorySlugFromQuery(){return new URLSearchParams(location.search).get('category')||'all'}
-window.GRACIOUS={loadCatalog,loadStoreMode,nav,renderCards,byId,addCart,getCart,setCart,fmt,esc,stockForSize,CATEGORIES,PRODUCTS,PAYMENT_METHODS};
+window.GRACIOUS={loadCatalog,loadStoreMode,nav,renderCards,byId,addCart,getCart,setCart,fmt,esc,stockForSize,CATEGORIES,PRODUCTS,PAYMENT_METHODS,setLanguage,setCurrency,t};
