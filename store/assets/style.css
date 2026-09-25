@@ -39,3 +39,5 @@ nav{box-shadow:0 10px 50px #0004}.icon:hover{box-shadow:0 12px 30px #fff1}.loade
 .currency-option small{font-size:8px;color:#777}
 .currency-option.active small{color:#555}
 @media(max-width:700px){.store-preferences{margin-left:auto}.currency-popover{right:-35px}.mini-pop{right:0}.pref-trigger{padding:7px 8px}}
+
+.payment-proof-preview{margin-top:10px;display:grid;gap:6px}.payment-proof-preview img{width:100%;max-width:360px;max-height:300px;object-fit:contain;border:1px solid rgba(255,255,255,.12);border-radius:14px}.payment-proof-preview span{font-size:12px;opacity:.65;overflow:hidden;text-overflow:ellipsis}

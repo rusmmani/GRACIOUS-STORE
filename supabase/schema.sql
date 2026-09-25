@@ -99,6 +99,7 @@ create table if not exists public.orders(
   updated_at timestamptz not null default now()
 );
 alter table public.orders add column if not exists payment_method text;
+alter table public.orders add column if not exists payment_proof_url text;
 
 create table if not exists public.order_items(
   id uuid primary key default gen_random_uuid(),
@@ -218,7 +219,8 @@ grant select,insert,update,delete on public.store_profile to authenticated;
 insert into storage.buckets(id,name,public) values
 ('product-images','product-images',true),
 ('payment-assets','payment-assets',true),
-('store-assets','store-assets',true)
+('store-assets','store-assets',true),
+('payment-proofs','payment-proofs',true)
 on conflict(id) do update set public=true;
 
 drop policy if exists gracious_product_upload on storage.objects;
@@ -248,14 +250,26 @@ create policy gracious_payment_delete on storage.objects for delete to authentic
 drop policy if exists gracious_payment_select on storage.objects;
 create policy gracious_payment_select on storage.objects for select to public using(bucket_id='payment-assets');
 
+-- Customer payment proof bucket. Files are public URLs so admins can review them from the dashboard.
+drop policy if exists gracious_payment_proof_upload on storage.objects;
+create policy gracious_payment_proof_upload on storage.objects for insert to anon,authenticated with check(bucket_id='payment-proofs');
+drop policy if exists gracious_payment_proof_select on storage.objects;
+create policy gracious_payment_proof_select on storage.objects for select to anon,authenticated using(bucket_id='payment-proofs');
+drop policy if exists gracious_payment_proof_update on storage.objects;
+create policy gracious_payment_proof_update on storage.objects for update to authenticated using(bucket_id='payment-proofs' and public.is_admin()) with check(bucket_id='payment-proofs' and public.is_admin());
+drop policy if exists gracious_payment_proof_delete on storage.objects;
+create policy gracious_payment_proof_delete on storage.objects for delete to authenticated using(bucket_id='payment-proofs' and public.is_admin());
+
 -- Order creation RPC. Payment method is stored with the order.
 drop function if exists public.place_order(text,text,text,text,text,text,text,text,text,jsonb);
 drop function if exists public.place_order(text,text,text,text,text,text,text,text,text,text,jsonb);
-create or replace function public.place_order(customer_name text, customer_phone text, customer_email text, address text, city text, province text, postal_code text, notes text, promo_code text, payment_method text, items jsonb)
+drop function if exists public.place_order(text,text,text,text,text,text,text,text,text,text,text,jsonb);
+create or replace function public.place_order(customer_name text, customer_phone text, customer_email text, address text, city text, province text, postal_code text, notes text, promo_code text, payment_method text, payment_proof_url text, items jsonb)
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   it jsonb; p public.products%rowtype; sub integer:=0; ship integer:=15000; disc integer:=0; total integer; code text; oid uuid; pr public.promos%rowtype; q integer; chosen_size text;
 begin
+  if nullif(trim(payment_proof_url),'') is null then raise exception 'Bukti pembayaran wajib diupload'; end if;
   if jsonb_array_length(items)=0 then raise exception 'Keranjang kosong'; end if;
   for it in select * from jsonb_array_elements(items) loop
     select * into p from public.products where id=it->>'product_id' and active=true for update;
@@ -279,8 +293,8 @@ begin
   end if;
   total:=greatest(sub+ship-disc,0);
   code:='GR-'||to_char(now(),'YYYYMMDD')||'-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,6));
-  insert into public.orders(order_code,customer_name,customer_phone,customer_email,address,city,province,postal_code,notes,promo_code,payment_method,subtotal,shipping,discount,total)
-  values(code,customer_name,customer_phone,customer_email,address,city,province,postal_code,notes,nullif(trim(promo_code),''),nullif(trim(payment_method),''),sub,ship,disc,total) returning id into oid;
+  insert into public.orders(order_code,customer_name,customer_phone,customer_email,address,city,province,postal_code,notes,promo_code,payment_method,payment_proof_url,subtotal,shipping,discount,total)
+  values(code,customer_name,customer_phone,customer_email,address,city,province,postal_code,notes,nullif(trim(promo_code),''),nullif(trim(payment_method),''),nullif(trim(payment_proof_url),''),sub,ship,disc,total) returning id into oid;
   for it in select * from jsonb_array_elements(items) loop
     select * into p from public.products where id=it->>'product_id';
     insert into public.order_items(order_id,product_id,product_name,unit_price,size,quantity)
@@ -292,11 +306,11 @@ begin
   return jsonb_build_object('order_code',code,'order_id',oid,'subtotal',sub,'shipping',ship,'discount',disc,'total',total,'payment_method',payment_method);
 end;$$;
 
-grant execute on function public.place_order(text,text,text,text,text,text,text,text,text,text,jsonb) to anon,authenticated;
+grant execute on function public.place_order(text,text,text,text,text,text,text,text,text,text,text,jsonb) to anon,authenticated;
 
 create or replace function public.get_order_tracking(p_order_code text)
 returns jsonb language sql security definer set search_path=public as $$
-  select coalesce(jsonb_build_object('order_code',o.order_code,'status',o.status,'tracking_number',o.tracking_number,'created_at',o.created_at,'total',o.total,'payment_method',o.payment_method,'items',coalesce((select jsonb_agg(jsonb_build_object('product_name',oi.product_name,'size',oi.size,'quantity',oi.quantity)) from public.order_items oi where oi.order_id=o.id),'[]'::jsonb)),'null'::jsonb)
+  select coalesce(jsonb_build_object('order_code',o.order_code,'status',o.status,'tracking_number',o.tracking_number,'created_at',o.created_at,'total',o.total,'payment_method',o.payment_method,'payment_proof_url',o.payment_proof_url,'items',coalesce((select jsonb_agg(jsonb_build_object('product_name',oi.product_name,'size',oi.size,'quantity',oi.quantity)) from public.order_items oi where oi.order_id=o.id),'[]'::jsonb)),'null'::jsonb)
   from public.orders o where upper(o.order_code)=upper(trim(p_order_code));
 $$;
 grant execute on function public.get_order_tracking(text) to anon,authenticated;
