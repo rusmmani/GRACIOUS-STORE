@@ -13,7 +13,7 @@
 <p class="note" style="margin:6px 0 12px">1 kaos = 190 gram. Berat otomatis dikalikan jumlah item di keranjang. Tarif dihitung dari rute asal–tujuan dan berat melalui data ongkir kurir.</p>
 <div class="field"><label>Cari tujuan pengiriman</label><div class="promo"><input id="destinationSearch" placeholder="Contoh: Indramayu, Jatibarang, 45281"><button type="button" id="searchDestination">CARI</button></div><div id="destinationResults" class="destination-results"></div></div>
 <div id="selectedDestination" class="shipping-meta"></div>
-<div class="field"><label>Pilih Kurir</label><div id="courierOptions" class="shipping-couriers"></div><small class="note">Pilih salah satu kurir untuk melihat layanan dan tarifnya.</small></div><div class="field"><label>Layanan Pengiriman</label><div id="shippingOptions" class="shipping-results"></div><small id="shippingMsg" class="shipping-error"></small></div>
+<div class="field"><label for="courierSelect">Pilih Kurir</label><div class="shipping-select-wrap"><select id="courierSelect" class="shipping-courier-select"><option value="">Pilih kurir terlebih dahulu</option></select></div><small class="note">Pilih kurir dari dropdown untuk melihat layanan dan tarifnya.</small></div><div class="field"><label>Layanan Pengiriman</label><div id="shippingOptions" class="shipping-results"></div><small id="shippingMsg" class="shipping-error"></small></div>
 <div class="field"><label>Layanan</label><select id="shippingService" disabled><option>Pilih kurir terlebih dahulu</option></select></div>
 <div id="shippingMeta" class="shipping-meta"></div>
 </div>
@@ -51,11 +51,13 @@ document.addEventListener('DOMContentLoaded',async()=>{
    const city=document.querySelector('[name="city"]'),prov=document.querySelector('[name="province"]'),postal=document.querySelector('[name="postal"]');
    city.value=d.city||d.city_name||'';prov.value=d.province||d.province_name||'';postal.value=d.zip_code||'';city.readOnly=true;prov.readOnly=true;postal.readOnly=true;calculateAll();
  }
- function renderCourierButtons(){
-   const box=document.getElementById('courierOptions');
-   box.innerHTML=GRACIOUS_SHIPPING.COURIERS.map(c=>`<button type="button" class="shipping-courier-btn ${c.code===selectedCourier?'selected':''}" data-courier="${esc(c.code)}" ${destination?'':'disabled'}>${esc(c.name)}</button>`).join('');
-   box.querySelectorAll('[data-courier]').forEach(b=>b.onclick=()=>{selectedCourier=b.dataset.courier;renderCourierButtons();loadCourierRates(selectedCourier)});
+ function renderCourierDropdown(){
+   const select=document.getElementById('courierSelect');
+   select.innerHTML='<option value="">'+(destination?'Pilih kurir':'Pilih tujuan terlebih dahulu')+'</option>'+GRACIOUS_SHIPPING.COURIERS.map(c=>`<option value="${esc(c.code)}" ${c.code===selectedCourier?'selected':''}>${esc(c.name)}</option>`).join('');
+   select.disabled=!destination;
+   select.onchange=()=>{selectedCourier=select.value;loadCourierRates(selectedCourier)};
  }
+ const renderCourierButtons=renderCourierDropdown;
  async function loadCourierRates(courierCode){
    selectedShipping=null;shippingOptions=[];document.getElementById('shippingOptions').innerHTML='<div class="shipping-meta">Memuat tarif…</div>';document.getElementById('shippingMsg').textContent='';document.getElementById('shippingService').innerHTML='<option>Pilih layanan</option>';document.getElementById('shippingService').disabled=true;render();syncSubmit();
    const origin=window.GRACIOUS?.STORE_SETTINGS?.shipping_origin_id;
@@ -70,7 +72,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
    }catch(err){document.getElementById('shippingOptions').innerHTML='';document.getElementById('shippingMsg').textContent=err.message||'Gagal mengambil tarif ongkir.'}
  }
  async function calculateAll(){
-   selectedCourier=GRACIOUS_SHIPPING.COURIERS[0]?.code||'jne';selectedShipping=null;shippingOptions=[];renderCourierButtons();document.getElementById('shippingOptions').innerHTML='';document.getElementById('shippingMsg').textContent='';render();syncSubmit();
+   selectedCourier='';selectedShipping=null;shippingOptions=[];renderCourierDropdown();document.getElementById('shippingOptions').innerHTML='';document.getElementById('shippingMsg').textContent='';render();syncSubmit();
    if(destination?.id)await loadCourierRates(selectedCourier);
  }
  function selectShipping(index){
