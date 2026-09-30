@@ -4,7 +4,7 @@
   <div class="info">
     <div class="eyebrow" id="badge"></div><h1 id="name"></h1><div class="price-lg" id="price"></div><p class="desc" id="desc"></p>
     <div class="material-list" id="materials"></div>
-    <div class="eyebrow" style="margin-top:25px" data-lang-id="selectSize">SELECT SIZE</div><div class="sizes" id="sizes"></div>
+    <div class="eyebrow" style="margin-top:25px">SELECT COLOR</div><div class="product-colors" id="colors"></div><div class="eyebrow" style="margin-top:25px" data-lang-id="selectSize">SELECT SIZE</div><div class="sizes" id="sizes"></div>
     <div class="note" id="stockNote"></div>
     <button class="btn" id="add" data-order-cta data-preorder-text="PRE-ORDER ↗" data-order-text="ORDER NOW ↗" data-preorder-key="preorder" data-order-key="orderNow" style="width:100%">PRE-ORDER ↗</button>
     <div class="note" id="modeNote"></div>
@@ -40,12 +40,14 @@ document.addEventListener('DOMContentLoaded',async()=>{
  function goTo(i){if(!imgs.length)return;current=(i+imgs.length)%imgs.length;track.style.transform=`translateX(-${current*100}%)`;gallery.querySelectorAll('[data-slide]').forEach((b,j)=>b.classList.toggle('active',j===current));counter.textContent=`${current+1} / ${imgs.length}`}
  gallery.querySelector('.prev').onclick=()=>goTo(current-1);gallery.querySelector('.next').onclick=()=>goTo(current+1);gallery.querySelectorAll('[data-slide]').forEach(b=>b.onclick=()=>goTo(+b.dataset.slide));
  let sx=0,dx=0;gallery.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;dx=0},{passive:true});gallery.addEventListener('touchmove',e=>{dx=e.touches[0].clientX-sx},{passive:true});gallery.addEventListener('touchend',()=>{if(Math.abs(dx)>45)goTo(current+(dx<0?1:-1))});
- let size=(p.sizes||['S','M','L','XL']).includes('M')?'M':(p.sizes||['S','M','L','XL'])[0];
+ let color=(p.colors?.[0]?.name||''); let size=(p.sizes||['S','M','L','XL']).includes('M')?'M':(p.sizes||['S','M','L','XL'])[0];
+ document.getElementById('colors').innerHTML=(p.colors||[]).length?(p.colors.map((c,i)=>`<button type="button" class="color-option ${i===0?'selected':''}" data-color="${esc(c.name||'')}" title="${esc(c.name||'')}"><i style="background:${esc(c.hex||'#111')}"></i><span>${esc(c.name||'')}</span></button>`).join('')):'<span class="note">Warna default produk</span>';
+ document.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{color=b.dataset.color;document.querySelectorAll('[data-color]').forEach(x=>x.classList.toggle('selected',x===b));setupButtonMotion()});
  document.getElementById('sizes').innerHTML=(p.sizes||['S','M','L','XL']).map(s=>`<button class="size ${s===size?'selected':''}" data-size="${esc(s)}">${esc(s)}</button>`).join('');
  function updateStock(){const stock=stockForSize(p,size);document.getElementById('stockNote').textContent=stock>0?t('available',stock,size):t('out');const add=document.getElementById('add');add.disabled=stock<=0;add.textContent=stock<=0?t('sold'):(p.preorder?t('preorder'):t('orderNow'))}
  document.querySelectorAll('[data-size]').forEach(b=>b.onclick=()=>{size=b.dataset.size;document.querySelectorAll('[data-size]').forEach(x=>x.classList.toggle('selected',x===b));updateStock();setupButtonMotion()});
  document.getElementById('modeNote').textContent=p.preorder?t('preorderItem'):t('readyItem');updateStock();
- document.getElementById('add').onclick=()=>{if(stockForSize(p,size)<=0)return;addCart(p.id,size,1);setTimeout(()=>location.href='cart.html',350)};
+ document.getElementById('add').onclick=()=>{if(stockForSize(p,size)<=0)return;addCart(p.id,size,1,color);setTimeout(()=>location.href='cart.html',350)};
  setupButtonMotion();applyStorePreferences();await initReviews(p.id)
 });
 async function initReviews(productId){

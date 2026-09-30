@@ -50,6 +50,7 @@ create table if not exists public.products (
   short_description text default '', material text, printing text,
   sizes text[] not null default array['S','M','L','XL'], stock_by_size jsonb not null default '{}'::jsonb,
   order_mode text not null default 'preorder' check (order_mode in ('order','preorder')),
+  colors jsonb not null default '[]'::jsonb,
   badge text, active boolean not null default true, image_urls text[] not null default '{}',
   created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
@@ -79,7 +80,7 @@ create table if not exists public.orders (
 );
 create table if not exists public.order_items (
   id uuid primary key default uuid_generate_v4(), order_id uuid not null references public.orders(id) on delete cascade,
-  product_id text, product_name text not null, size text not null, quantity integer not null check(quantity>0),
+  product_id text, product_name text not null, size text not null, color text, quantity integer not null check(quantity>0),
   unit_price integer not null default 0, created_at timestamptz not null default now()
 );
 
@@ -87,6 +88,8 @@ alter table public.site_settings add column if not exists shipping_origin_id int
 alter table public.site_settings add column if not exists shipping_origin_label text;
 alter table public.site_settings add column if not exists shirt_weight_grams integer not null default 190;
 alter table public.site_settings add column if not exists shipping_api_enabled boolean not null default true;
+alter table public.products add column if not exists colors jsonb not null default '[]'::jsonb;
+alter table public.order_items add column if not exists color text;
 alter table public.orders add column if not exists shipping_courier_code text;
 alter table public.orders add column if not exists shipping_courier_name text;
 alter table public.orders add column if not exists shipping_service text;
@@ -195,14 +198,15 @@ create or replace function public.place_order(
 ) returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   v_order_id uuid; v_order_code text; v_subtotal integer:=0; v_discount integer:=0; v_total integer:=0;
-  v_item jsonb; v_product public.products%rowtype; v_qty integer; v_size text; v_stock integer; v_promo public.promos%rowtype;
+  v_item jsonb; v_product public.products%rowtype; v_qty integer; v_size text; v_color text; v_stock integer; v_promo public.promos%rowtype;
 begin
   if jsonb_typeof(items)<>'array' or jsonb_array_length(items)=0 then raise exception 'Cart kosong.'; end if;
   for v_item in select * from jsonb_array_elements(items) loop
     select * into v_product from public.products where id=(v_item->>'product_id') and active=true for update;
     if not found then raise exception 'Produk tidak tersedia: %',v_item->>'product_id'; end if;
-    v_qty:=greatest(1,coalesce((v_item->>'quantity')::integer,1)); v_size:=upper(trim(v_item->>'size'));
+    v_qty:=greatest(1,coalesce((v_item->>'quantity')::integer,1)); v_size:=upper(trim(v_item->>'size')); v_color:=nullif(trim(v_item->>'color'),'');
     if not(v_size=any(v_product.sizes)) then raise exception 'Size % tidak tersedia untuk %.',v_size,v_product.name; end if;
+    if jsonb_typeof(coalesce(v_product.colors,'[]'::jsonb))='array' and jsonb_array_length(coalesce(v_product.colors,'[]'::jsonb))>0 and not exists (select 1 from jsonb_array_elements(coalesce(v_product.colors,'[]'::jsonb)) c where lower(trim(c->>'name'))=lower(coalesce(v_color,''))) then raise exception 'Warna % tidak tersedia untuk %.',coalesce(v_color,'-'),v_product.name; end if;
     v_stock:=coalesce((v_product.stock_by_size->>v_size)::integer,0);
     if v_stock<v_qty then raise exception 'Stock % size % tidak mencukupi.',v_product.name,v_size; end if;
     v_subtotal:=v_subtotal+v_product.price*v_qty;
@@ -223,8 +227,8 @@ begin
   returning id into v_order_id;
   for v_item in select * from jsonb_array_elements(items) loop
     select * into v_product from public.products where id=(v_item->>'product_id') for update;
-    v_qty:=greatest(1,coalesce((v_item->>'quantity')::integer,1)); v_size:=upper(trim(v_item->>'size'));
-    insert into public.order_items(order_id,product_id,product_name,size,quantity,unit_price) values(v_order_id,v_product.id,v_product.name,v_size,v_qty,v_product.price);
+    v_qty:=greatest(1,coalesce((v_item->>'quantity')::integer,1)); v_size:=upper(trim(v_item->>'size')); v_color:=nullif(trim(v_item->>'color'),'');
+    insert into public.order_items(order_id,product_id,product_name,size,color,quantity,unit_price) values(v_order_id,v_product.id,v_product.name,v_size,v_color,v_qty,v_product.price);
     v_stock:=coalesce((v_product.stock_by_size->>v_size)::integer,0)-v_qty;
     v_product.stock_by_size:=jsonb_set(coalesce(v_product.stock_by_size,'{}'::jsonb),array[v_size],to_jsonb(greatest(0,v_stock)),true);
     update public.products set stock_by_size=v_product.stock_by_size,updated_at=now() where id=v_product.id;

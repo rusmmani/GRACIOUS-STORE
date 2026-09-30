@@ -29,7 +29,7 @@
 document.addEventListener('DOMContentLoaded',()=>{
  const slides=[...document.querySelectorAll('.campaign-slide')],dots=[...document.querySelectorAll('.campaign-dots button')];let i=0,timer;
  const show=n=>{i=(n+slides.length)%slides.length;slides.forEach((x,k)=>x.classList.toggle('active',k===i));dots.forEach((x,k)=>x.classList.toggle('active',k===i))};
- const restart=()=>{clearInterval(timer);timer=setInterval(()=>show(i+1),4200)};
+ const restart=()=>{clearInterval(timer);timer=setInterval(()=>show(i+1),3200)};
  dots.forEach((d,k)=>d.onclick=()=>{show(k);restart()});restart();
 });
 document.addEventListener('DOMContentLoaded',async()=>{await nav();renderCards(PRODUCTS.slice(0,6),document.getElementById('featured'));applyStorePreferences()})</script></body></html>

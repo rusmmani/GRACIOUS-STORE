@@ -13,7 +13,7 @@
 <p class="note" style="margin:6px 0 12px">1 kaos = 190 gram. Berat otomatis dikalikan jumlah item di keranjang. Tarif dihitung dari rute asal–tujuan dan berat melalui data ongkir kurir.</p>
 <div class="field"><label>Cari tujuan pengiriman</label><div class="promo"><input id="destinationSearch" placeholder="Contoh: Indramayu, Jatibarang, 45281"><button type="button" id="searchDestination">CARI</button></div><div id="destinationResults" class="destination-results"></div></div>
 <div id="selectedDestination" class="shipping-meta"></div>
-<div class="field"><label>Kurir</label><div id="shippingOptions" class="shipping-results"></div><small id="shippingMsg" class="shipping-error"></small></div>
+<div class="field"><label>Pilih Kurir</label><div id="courierOptions" class="shipping-couriers"></div><small class="note">Pilih salah satu kurir untuk melihat layanan dan tarifnya.</small></div><div class="field"><label>Layanan Pengiriman</label><div id="shippingOptions" class="shipping-results"></div><small id="shippingMsg" class="shipping-error"></small></div>
 <div class="field"><label>Layanan</label><select id="shippingService" disabled><option>Pilih kurir terlebih dahulu</option></select></div>
 <div id="shippingMeta" class="shipping-meta"></div>
 </div>
@@ -30,13 +30,13 @@ document.addEventListener('DOMContentLoaded',async()=>{
  const sb=window.supabase.createClient(window.GRACIOUS_CONFIG.supabaseUrl,window.GRACIOUS_CONFIG.supabaseAnonKey);
  const c=getCart(),list=document.getElementById('list'),tot=document.getElementById('totals'),form=document.getElementById('checkoutForm');
  if(!c.length){location.href='cart.html';return}
- let promo=null,selectedPayment='',destination=null,shippingOptions=[],selectedShipping=null;
+ let promo=null,selectedPayment='',destination=null,shippingOptions=[],selectedShipping=null,selectedCourier='';
  const weightPerShirt=Math.max(1,Number(window.GRACIOUS?.STORE_SETTINGS?.shirt_weight_grams||190));
  const totalWeight=()=>c.reduce((a,x)=>a+Number(x.qty||0),0)*weightPerShirt;
  const subTotal=()=>c.reduce((a,x)=>a+x.price*x.qty,0);
  function render(){
    const sub=subTotal(),discount=promo?.discount||0,ship=Number(selectedShipping?.cost||0);
-   list.innerHTML=c.map(x=>`<div class="checkout-item"><img src="${esc(x.img)}" alt="${esc(x.name)}"><div><strong>${esc(x.name)}</strong><small>${t('sizeLabel')} ${esc(x.size)} · ${t('qty')} ${x.qty} · ${weightPerShirt*x.qty} g</small></div><strong style="margin-left:auto">${fmt(x.price*x.qty)}</strong></div>`).join('');
+   list.innerHTML=c.map(x=>`<div class="checkout-item"><img src="${esc(x.img)}" alt="${esc(x.name)}"><div><strong>${esc(x.name)}</strong><small>${t('sizeLabel')} ${esc(x.size)}${x.color?' · Warna '+esc(x.color):''} · ${t('qty')} ${x.qty} · ${weightPerShirt*x.qty} g</small></div><strong style="margin-left:auto">${fmt(x.price*x.qty)}</strong></div>`).join('');
    tot.innerHTML=`<div class="summary-line"><span>${t('subtotal')}</span><span>${fmt(sub)}</span></div><div class="summary-line"><span>Berat</span><span>${totalWeight()} g</span></div><div class="summary-line"><span>${t('shipping')}</span><span>${ship?fmt(ship):'—'}</span></div><div class="summary-line"><span>${t('discount')}</span><span>-${fmt(discount)}</span></div><div class="summary-line total"><span>${t('total')}</span><span>${fmt(sub+ship-discount)}</span></div>`;
  }
  function renderPayments(){
@@ -51,20 +51,27 @@ document.addEventListener('DOMContentLoaded',async()=>{
    const city=document.querySelector('[name="city"]'),prov=document.querySelector('[name="province"]'),postal=document.querySelector('[name="postal"]');
    city.value=d.city||d.city_name||'';prov.value=d.province||d.province_name||'';postal.value=d.zip_code||'';city.readOnly=true;prov.readOnly=true;postal.readOnly=true;calculateAll();
  }
- async function calculateAll(){
-   selectedShipping=null;shippingOptions=[];document.getElementById('shippingOptions').innerHTML='';document.getElementById('shippingService').innerHTML='<option>Memuat tarif…</option>';document.getElementById('shippingService').disabled=true;document.getElementById('shippingMsg').textContent='';render();syncSubmit();
-   const origin=window.GRACIOUS?.STORE_SETTINGS?.shipping_origin_id;if(!origin){document.getElementById('shippingMsg').textContent='Admin belum mengatur origin shipping ID.';return}
-   if(!destination?.id)return;
+ function renderCourierButtons(){
+   const box=document.getElementById('courierOptions');
+   box.innerHTML=GRACIOUS_SHIPPING.COURIERS.map(c=>`<button type="button" class="shipping-courier-btn ${c.code===selectedCourier?'selected':''}" data-courier="${esc(c.code)}" ${destination?'':'disabled'}>${esc(c.name)}</button>`).join('');
+   box.querySelectorAll('[data-courier]').forEach(b=>b.onclick=()=>{selectedCourier=b.dataset.courier;renderCourierButtons();loadCourierRates(selectedCourier)});
+ }
+ async function loadCourierRates(courierCode){
+   selectedShipping=null;shippingOptions=[];document.getElementById('shippingOptions').innerHTML='<div class="shipping-meta">Memuat tarif…</div>';document.getElementById('shippingMsg').textContent='';document.getElementById('shippingService').innerHTML='<option>Pilih layanan</option>';document.getElementById('shippingService').disabled=true;render();syncSubmit();
+   const origin=window.GRACIOUS?.STORE_SETTINGS?.shipping_origin_id;
+   if(!origin){document.getElementById('shippingMsg').textContent='Admin belum mengatur origin shipping ID.';return}
+   if(!destination?.id){document.getElementById('shippingMsg').textContent='Pilih tujuan pengiriman terlebih dahulu.';return}
    try{
-     const all=[];
-     for(const courier of GRACIOUS_SHIPPING.COURIERS){
-       try{const rows=await GRACIOUS_SHIPPING.cost({origin,destination:destination.id,weight:totalWeight(),courier:courier.code});rows.forEach(row=>all.push({...row,courier_code:courier.code,courier_name:courier.name}))}catch(err){console.warn(courier.code,err)}
-     }
-     shippingOptions=[...new Map(all.map(x=>[x.courier_code+'|'+(x.service||x.service_name||x.service_code||''),x])).values()];
-     if(!shippingOptions.length)throw new Error('Tidak ada layanan ongkir untuk rute dan berat ini.');
-     document.getElementById('shippingOptions').innerHTML=shippingOptions.map((o,i)=>`<label class="shipping-option ${i===0?'selected':''}"><span><input type="radio" name="shipChoice" value="${i}" ${i===0?'checked':''}> <b>${esc(o.courier_name)}</b> · ${esc(o.service||o.service_name||o.service_code||'REG')}<small>${esc(o.etd||o.etd_info||'')}</small></span><strong>${fmt(Number(o.cost||o.shipping_cost||o.price||0))}</strong></label>`).join('');
+     const courier=GRACIOUS_SHIPPING.COURIERS.find(x=>x.code===courierCode);const rows=await GRACIOUS_SHIPPING.cost({origin,destination:destination.id,weight:totalWeight(),courier:courierCode});
+     shippingOptions=(rows||[]).map(row=>({...row,courier_code:courierCode,courier_name:courier?.name||courierCode}));
+     if(!shippingOptions.length)throw new Error(`Tidak ada layanan ${courier?.name||courierCode} untuk rute dan berat ini.`);
+     document.getElementById('shippingOptions').innerHTML=shippingOptions.map((o,i)=>`<label class="shipping-option ${i===0?'selected':''}"><span><input type="radio" name="shipChoice" value="${i}" ${i===0?'checked':''}> <b>${esc(o.service||o.service_name||o.service_code||'REG')}</b><small>${esc(o.etd||o.etd_info||'')}</small></span><strong>${fmt(Number(o.cost||o.shipping_cost||o.price||0))}</strong></label>`).join('');
      document.querySelectorAll('[name="shipChoice"]').forEach(r=>r.onchange=()=>selectShipping(Number(r.value)));selectShipping(0);
-   }catch(err){document.getElementById('shippingMsg').textContent=err.message||'Gagal mengambil tarif ongkir.';document.getElementById('shippingService').innerHTML='<option>Tarif belum tersedia</option>';document.getElementById('shippingService').disabled=true}
+   }catch(err){document.getElementById('shippingOptions').innerHTML='';document.getElementById('shippingMsg').textContent=err.message||'Gagal mengambil tarif ongkir.'}
+ }
+ async function calculateAll(){
+   selectedCourier=GRACIOUS_SHIPPING.COURIERS[0]?.code||'jne';selectedShipping=null;shippingOptions=[];renderCourierButtons();document.getElementById('shippingOptions').innerHTML='';document.getElementById('shippingMsg').textContent='';render();syncSubmit();
+   if(destination?.id)await loadCourierRates(selectedCourier);
  }
  function selectShipping(index){
    const o=shippingOptions[index];if(!o)return;
@@ -82,7 +89,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
      box.querySelectorAll('[data-destination]').forEach(b=>b.onclick=()=>renderDest(JSON.parse(b.dataset.destination)));
    }catch(err){box.innerHTML=`<div class="shipping-error">${esc(err.message||'Gagal mencari tujuan.')}</div>`}
  };
- render();renderPayments();applyStorePreferences();
+ renderCourierButtons();render();renderPayments();applyStorePreferences();
  document.getElementById('applyPromo').onclick=async()=>{
    const code=document.getElementById('promo').value.trim().toUpperCase(),sub=subTotal();
    if(!code){promo=null;document.getElementById('promoMsg').textContent=t('enterPromo');render();return}
@@ -103,7 +110,7 @@ document.addEventListener('DOMContentLoaded',async()=>{
    const up=await sb.storage.from('payment-proofs').upload(path,proof,{cacheControl:'3600',upsert:false,contentType:proof.type});
    if(up.error){toast(up.error.message||'Upload failed');syncSubmit();btn.textContent=t('uploadProof');return}
    const {data:pub}=sb.storage.from('payment-proofs').getPublicUrl(path),f=new FormData(form);
-   const payload={customer_name:f.get('name'),customer_phone:f.get('phone'),customer_email:f.get('email')||null,address:f.get('address'),city:f.get('city'),province:f.get('province'),postal_code:f.get('postal'),notes:f.get('notes')||null,promo_code:promo?.code||null,payment_method:selectedPayment,payment_proof_url:pub.publicUrl,items:c.map(x=>({product_id:x.id,size:x.size,quantity:x.qty})),shipping_courier_code:selectedShipping.courier_code,shipping_courier_name:selectedShipping.courier_name,shipping_service:selectedShipping.service,shipping_cost:selectedShipping.cost,shipping_etd:selectedShipping.etd||null,shipping_weight_grams:totalWeight(),shipping_origin_id:Number(window.GRACIOUS?.STORE_SETTINGS?.shipping_origin_id||0)||null,shipping_origin_label:window.GRACIOUS?.STORE_SETTINGS?.shipping_origin_label||null,shipping_destination_id:Number(destination?.id||0)||null,shipping_destination_label:destination?.label||null};
+   const payload={customer_name:f.get('name'),customer_phone:f.get('phone'),customer_email:f.get('email')||null,address:f.get('address'),city:f.get('city'),province:f.get('province'),postal_code:f.get('postal'),notes:f.get('notes')||null,promo_code:promo?.code||null,payment_method:selectedPayment,payment_proof_url:pub.publicUrl,items:c.map(x=>({product_id:x.id,size:x.size,color:x.color||'',quantity:x.qty})),shipping_courier_code:selectedShipping.courier_code,shipping_courier_name:selectedShipping.courier_name,shipping_service:selectedShipping.service,shipping_cost:selectedShipping.cost,shipping_etd:selectedShipping.etd||null,shipping_weight_grams:totalWeight(),shipping_origin_id:Number(window.GRACIOUS?.STORE_SETTINGS?.shipping_origin_id||0)||null,shipping_origin_label:window.GRACIOUS?.STORE_SETTINGS?.shipping_origin_label||null,shipping_destination_id:Number(destination?.id||0)||null,shipping_destination_label:destination?.label||null};
    btn.textContent=t('creatingOrder');
    const {data,error}=await sb.rpc('place_order',payload);
    if(error){await sb.storage.from('payment-proofs').remove([path]);toast(error.message||'Failed to create order');syncSubmit();btn.textContent=t('uploadProof');return}
