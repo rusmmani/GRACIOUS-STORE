@@ -9,7 +9,21 @@
   ];
   async function request(body){
     if(!endpoint) throw new Error('Shipping API endpoint belum dikonfigurasi.');
-    const res = await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+
+    // Supabase Edge Functions with verify_jwt=true require a valid JWT.
+    // Use the project's public anon JWT for guest checkout requests.
+    const anonJwt = cfg.supabaseAnonJwt || cfg.supabaseAnonKey || '';
+    const headers = {
+      'Content-Type':'application/json',
+      'apikey': cfg.supabaseAnonKey || ''
+    };
+    if (anonJwt) headers['Authorization'] = `Bearer ${anonJwt}`;
+
+    const res = await fetch(endpoint,{
+      method:'POST',
+      headers,
+      body:JSON.stringify(body)
+    });
     let data=null; try{data=await res.json()}catch{}
     if(!res.ok || data?.error) throw new Error(data?.error || data?.message || `Shipping API error ${res.status}`);
     return data;
