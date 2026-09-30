@@ -79,3 +79,22 @@ nav{box-shadow:0 10px 50px #0004}.icon:hover{box-shadow:0 12px 30px #fff1}.loade
 .hero-img img{object-fit:contain;background:#050505}
 @media(max-width:900px){.gallery-carousel{order:0}.carousel-viewport{aspect-ratio:3/4}}
 @media(max-width:560px){.gallery-carousel{border-radius:22px}.carousel-arrow{width:38px;height:38px;font-size:23px}.carousel-bottom{left:10px;right:10px;bottom:10px}}
+
+.campaign-slideshow{isolation:isolate}
+.campaign-slides{position:absolute;inset:0;overflow:hidden;background:#111}
+.campaign-slide{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);transition:opacity .8s ease,transform 5s ease;filter:saturate(.9)}
+.campaign-slide.active{opacity:.72;transform:scale(1)}
+.campaign-slideshow:after{z-index:0}
+.campaign-copy{z-index:2}
+.campaign-dots{position:absolute;right:28px;bottom:25px;z-index:3;display:flex;gap:7px}
+.campaign-dots button{width:28px;height:3px;padding:0;border:0;border-radius:99px;background:#ffffff55}
+.campaign-dots button.active{background:#fff}
+.shipping-box{border:1px solid #292929;background:#101010;border-radius:18px;padding:16px;margin:16px 0}
+.shipping-results{display:grid;gap:8px;margin-top:10px}
+.shipping-option{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #2a2a2a;background:#141414;color:#eee;border-radius:14px;padding:12px;cursor:pointer}
+.shipping-option.selected{border-color:#eee;background:#1b1b1b}
+.shipping-option input{accent-color:#fff}.shipping-option small{display:block;color:#777;margin-top:3px}
+.destination-results{display:grid;gap:6px;margin-top:8px}.destination-result{border:1px solid #2a2a2a;background:#111;color:#ddd;border-radius:12px;padding:10px 12px;text-align:left}
+.destination-result:hover{background:#191919}.shipping-meta{display:flex;justify-content:space-between;gap:10px;color:#777;font-size:11px;margin-top:8px;flex-wrap:wrap}
+.shipping-error{color:#d99;font-size:11px;line-height:1.5;margin-top:8px}
+@media(max-width:560px){.campaign-dots{right:16px;bottom:17px}.campaign-dots button{width:22px}.shipping-option{align-items:flex-start}}

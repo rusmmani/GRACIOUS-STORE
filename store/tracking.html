@@ -1,8 +1,41 @@
 <!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="assets/logo.jpg"><link rel="stylesheet" href="assets/style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="assets/config.js"></script><title>GRACIOUS — Track Order</title></head><div class="loader"><div class="loader-inner"><img class="loader-logo" src="assets/logo.jpg"><div class="ring"></div><div class="loader-text" data-lang-id="loadingStore">Loading GRACIOUS</div></div></div><nav><a class="logo" href="index.html"><img src="assets/logo.jpg" alt="GRACIOUS"><span>GRACIOUS</span></a><div class="navlinks"><a href="products.html" data-lang-id="shop">Shop</a><a href="products.html?category=new-drop" data-lang-id="newDrop">New Drop</a><a href="products.html?category=essentials" data-lang-id="essentials">Essentials</a><a href="tracking.html" data-lang-id="track">Track Order</a></div><div class="actions"></div></nav>
-<main><div class="wrap tracking"><div style="max-width:800px;margin:auto"><div class="eyebrow" data-lang-id="trackingEyebrow">ORDER TRACKING</div><h1 style="font-size:55px;letter-spacing:-.07em" data-lang-id="trackingTitle">Track your order.</h1><p style="color:#888" data-lang-id="trackingDesc">Enter your order code to view confirmation status and tracking information.</p><div class="track-form"><input id="code" data-lang-placeholder="trackPlaceholder" placeholder="GR-20260924-AB12"><button class="btn" id="track" data-lang-id="track">TRACK ↗</button></div><div id="result"></div></div></div></main><footer><div class="wrap">© 2026 GRACIOUS — <span data-lang-id="footer">Premium Graphic Essentials.</span></div></footer><div class="toast"></div><script src="assets/config.js"></script><script src="assets/app.js"></script><script>
+<main><div class="wrap tracking"><div style="max-width:800px;margin:auto">
+<div class="eyebrow" data-lang-id="trackingEyebrow">PELACAKAN PESANAN</div>
+<h1 style="font-size:55px;letter-spacing:-.07em" data-lang-id="trackingTitle">Lacak pesananmu.</h1>
+<p style="color:#888">Masukkan <b>resi</b>, <b>nama pembeli</b>, dan <b>kurir</b> untuk melihat pesanan dan status pengiriman.</p>
+<div class="shipping-box">
+<div class="field"><label>Kurir</label><select id="courier"><option value="jne">JNE</option><option value="jnt">J&T Express</option><option value="sicepat">SiCepat</option><option value="pos">POS Indonesia</option></select></div>
+<div class="field"><label>Nomor Resi</label><input id="resi" placeholder="Masukkan nomor resi"></div>
+<div class="field"><label>Nama Pembeli</label><input id="buyerName" placeholder="Sesuai nama saat checkout"></div>
+<button class="btn" id="track">LACAK ↗</button>
+</div><div id="result"></div>
+</div></div></main><footer><div class="wrap">© 2026 GRACIOUS — <span data-lang-id="footer">Premium Graphic Essentials.</span></div></footer><div class="toast"></div><script src="assets/config.js"></script><script src="assets/app.js"></script><script src="assets/shipping.js"></script><script>
 document.addEventListener('DOMContentLoaded',async()=>{
  await nav();
- const SB=window.supabase.createClient(window.GRACIOUS_CONFIG.supabaseUrl,window.GRACIOUS_CONFIG.supabaseAnonKey);
- document.getElementById('track').onclick=async()=>{const code=document.getElementById('code').value.trim().toUpperCase(),r=document.getElementById('result');r.innerHTML='<div class="status">'+esc(t('loading'))+'</div>';const {data,error}=await SB.rpc('get_order_tracking',{p_order_code:code});if(error||!data){r.innerHTML='<div class="status">'+esc(t('notFound'))+'</div>';return}const steps=['pending','confirmed','shipped','completed'],idx=Math.max(0,steps.indexOf(data.status));const labels={pending:t('received'),confirmed:t('confirmed'),shipped:t('shipped'),completed:t('completed')};r.innerHTML=`<div class="status"><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="eyebrow">${esc(data.order_code)}</div><h2 style="margin:8px 0">${fmt(data.total)}</h2></div><span class="status-pill">${esc(data.status)}</span></div><div class="timeline">${steps.map((s,i)=>`<div class="event ${i<=idx?'done':''}">${labels[s]}${s==='shipped'&&data.tracking_number?' · Resi '+escapeHtml(data.tracking_number):''}</div>`).join('')}</div></div>`}
+ const sb=window.supabase.createClient(window.GRACIOUS_CONFIG.supabaseUrl,window.GRACIOUS_CONFIG.supabaseAnonKey);
+ document.getElementById('track').onclick=async()=>{
+  const courier=document.getElementById('courier').value,awb=document.getElementById('resi').value.trim(),name=document.getElementById('buyerName').value.trim(),r=document.getElementById('result');
+  if(!awb||!name){r.innerHTML='<div class="shipping-error">Resi dan nama pembeli wajib diisi.</div>';return}
+  r.innerHTML='<div class="status">Mencari pesanan…</div>';
+  const {data:order,error}=await sb.rpc('get_order_tracking_by_identity',{p_tracking_number:awb,p_customer_name:name});
+  if(error||!order){r.innerHTML='<div class="status">Pesanan dengan resi dan nama tersebut tidak ditemukan.</div>';return}
+  let live=null,liveError='';
+  try{
+   if(courier!=='sicepat'){const result=await GRACIOUS_SHIPPING.track({awb,courier});live=result?.data||null}
+   else liveError='Tracking live SiCepat tidak tersedia melalui endpoint RajaOngkir Shipping Cost saat ini.';
+  }catch(err){liveError=err.message||'Tracking live belum tersedia.'}
+  const steps=['pending','confirmed','shipped','completed'],idx=Math.max(0,steps.indexOf(order.status));
+  const labels={pending:'Pesanan diterima',confirmed:'Pesanan dikonfirmasi',shipped:'Pesanan dikirim',completed:'Pesanan selesai'};
+  const summary=live?.summary||{},manifest=Array.isArray(live?.manifest)?live.manifest:[];
+  const courierLinks={jne:'https://jne.co.id/tracking-package',jnt:'https://jet.co.id/track',sicepat:'https://www.sicepat.com/',pos:'https://ems.posindonesia.co.id/'};
+  r.innerHTML=`<div class="status">
+   <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><div class="eyebrow">${esc(order.order_code)}</div><h2 style="margin:8px 0">${fmt(order.total)}</h2><div style="color:#777;font-size:12px">${esc(order.customer_name)} · ${esc(order.shipping_courier_name||courier.toUpperCase())}</div></div><span class="status-pill">${esc(summary.status||order.status)}</span></div>
+   <div class="timeline">${steps.map((st,i)=>`<div class="event ${i<=idx?'done':''}">${labels[st]}${st==='shipped'&&order.tracking_number?' · Resi '+esc(order.tracking_number):''}</div>`).join('')}</div>
+   ${summary.destination?`<div class="shipping-meta"><span>Tujuan: ${esc(summary.destination)}</span><span>${esc(summary.service_code||order.shipping_service||'')}</span></div>`:''}
+   ${manifest.length?`<div style="margin-top:18px"><div class="eyebrow">RIWAYAT KURIR</div>${manifest.slice().reverse().map(m=>`<div class="proof-line"><span>${esc(m.manifest_date||'')} ${esc(m.manifest_time||'')}</span><strong>${esc(m.manifest_description||'')} ${m.city_name?'· '+esc(m.city_name):''}</strong></div>`).join('')}</div>`:''}
+   ${liveError?`<div class="shipping-error">${esc(liveError)}</div>`:''}
+   <div class="actions-row"><a class="btn" href="${esc(courierLinks[courier])}" target="_blank" rel="noopener">TRACK DI ${esc(courier.toUpperCase())} ↗</a></div>
+  </div>`;
+ };
 });
 </script></body></html>
