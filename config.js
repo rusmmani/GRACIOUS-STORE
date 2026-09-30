@@ -1,4 +1,4 @@
 window.EDTV_CONFIG = {
-  SUPABASE_URL: 'https://taszpwhyfptdnudwrggg.supabase.co',
-  SUPABASE_ANON_KEY: 'sb_publishable_QeAuwQWScd-j3Kk7g-iCQA_b-3y6VdU'
+  SUPABASE_URL: 'https://dlkdtmdmauqvbumhyqsu.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_A5Lenr4D9XPyVTHgoIozuA_9wfsvfIc'
 };
