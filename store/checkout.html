@@ -13,9 +13,7 @@
 <p class="note" style="margin:6px 0 12px">1 kaos = 190 gram. Berat otomatis dikalikan jumlah item di keranjang. Tarif dihitung dari rute asal–tujuan dan berat melalui data ongkir kurir.</p>
 <div class="field"><label>Cari tujuan pengiriman</label><div class="promo"><input id="destinationSearch" placeholder="Contoh: Indramayu, Jatibarang, 45281"><button type="button" id="searchDestination">CARI</button></div><div id="destinationResults" class="destination-results"></div></div>
 <div id="selectedDestination" class="shipping-meta"></div>
-<div class="field"><label for="courierSelect">Pilih Kurir</label><div class="shipping-select-wrap"><select id="courierSelect" class="shipping-courier-select"><option value="">Pilih kurir terlebih dahulu</option></select></div><small class="note">Pilih kurir dari dropdown untuk melihat layanan dan tarifnya.</small></div><div class="field"><label>Layanan Pengiriman</label><div id="shippingOptions" class="shipping-results"></div><small id="shippingMsg" class="shipping-error"></small></div>
-<div class="field"><label>Layanan</label><select id="shippingService" disabled><option>Pilih kurir terlebih dahulu</option></select></div>
-<div id="shippingMeta" class="shipping-meta"></div>
+<div class="field"><label for="courierSelect">Pilih Kurir & Layanan</label><div class="shipping-select-wrap"><select id="courierSelect" class="shipping-courier-select"><option value="">Pilih kurir terlebih dahulu</option></select></div><small class="note">Semua kurir dan layanan tersedia dalam satu dropdown.</small><small id="shippingMsg" class="shipping-error"></small></div><div id="shippingMeta" class="shipping-meta"></div>
 </div>
 <div class="field"><label data-lang-id="notesOptional">Notes (optional)</label><textarea name="notes"></textarea></div>
 <div class="field"><label data-lang-id="promoCode">Promo Code</label><div class="promo"><input name="promo" id="promo" placeholder="GRACIOUS10"><button type="button" id="applyPromo" data-lang-id="apply">APPLY</button></div><small id="promoMsg" style="color:#777"></small></div>
@@ -53,33 +51,43 @@ document.addEventListener('DOMContentLoaded',async()=>{
  }
  function renderCourierDropdown(){
    const select=document.getElementById('courierSelect');
-   select.innerHTML='<option value="">'+(destination?'Pilih kurir':'Pilih tujuan terlebih dahulu')+'</option>'+GRACIOUS_SHIPPING.COURIERS.map(c=>`<option value="${esc(c.code)}" ${c.code===selectedCourier?'selected':''}>${esc(c.name)}</option>`).join('');
+   select.innerHTML='<option value="">'+(destination?'Memuat kurir & layanan…':'Pilih tujuan terlebih dahulu')+'</option>';
    select.disabled=!destination;
-   select.onchange=()=>{selectedCourier=select.value;loadCourierRates(selectedCourier)};
  }
  const renderCourierButtons=renderCourierDropdown;
- async function loadCourierRates(courierCode){
-   selectedShipping=null;shippingOptions=[];document.getElementById('shippingOptions').innerHTML='<div class="shipping-meta">Memuat tarif…</div>';document.getElementById('shippingMsg').textContent='';document.getElementById('shippingService').innerHTML='<option>Pilih layanan</option>';document.getElementById('shippingService').disabled=true;render();syncSubmit();
+ async function loadCourierRates(){
+   selectedShipping=null;shippingOptions=[];renderCourierDropdown();document.getElementById('shippingMsg').textContent='';render();syncSubmit();
    const origin=window.GRACIOUS?.STORE_SETTINGS?.shipping_origin_id;
    if(!origin){document.getElementById('shippingMsg').textContent='Admin belum mengatur origin shipping ID.';return}
    if(!destination?.id){document.getElementById('shippingMsg').textContent='Pilih tujuan pengiriman terlebih dahulu.';return}
    try{
-     const courier=GRACIOUS_SHIPPING.COURIERS.find(x=>x.code===courierCode);const rows=await GRACIOUS_SHIPPING.cost({origin,destination:destination.id,weight:totalWeight(),courier:courierCode});
-     shippingOptions=(rows||[]).map(row=>({...row,courier_code:courierCode,courier_name:courier?.name||courierCode}));
-     if(!shippingOptions.length)throw new Error(`Tidak ada layanan ${courier?.name||courierCode} untuk rute dan berat ini.`);
-     document.getElementById('shippingOptions').innerHTML=shippingOptions.map((o,i)=>`<label class="shipping-option ${i===0?'selected':''}"><span><input type="radio" name="shipChoice" value="${i}" ${i===0?'checked':''}> <b>${esc(o.service||o.service_name||o.service_code||'REG')}</b><small>${esc(o.etd||o.etd_info||'')}</small></span><strong>${fmt(Number(o.cost||o.shipping_cost||o.price||0))}</strong></label>`).join('');
-     document.querySelectorAll('[name="shipChoice"]').forEach(r=>r.onchange=()=>selectShipping(Number(r.value)));selectShipping(0);
-   }catch(err){document.getElementById('shippingOptions').innerHTML='';document.getElementById('shippingMsg').textContent=err.message||'Gagal mengambil tarif ongkir.'}
+     const results=await Promise.all(GRACIOUS_SHIPPING.COURIERS.map(async courier=>{
+       try{
+         const rows=await GRACIOUS_SHIPPING.cost({origin,destination:destination.id,weight:totalWeight(),courier:courier.code});
+         return (rows||[]).map(row=>({...row,courier_code:courier.code,courier_name:courier.name}));
+       }catch(e){return []}
+     }));
+     shippingOptions=results.flat();
+     const select=document.getElementById('courierSelect');
+     if(!shippingOptions.length)throw new Error('Tidak ada layanan ongkir yang tersedia untuk tujuan ini.');
+     select.innerHTML='<option value="">Pilih kurir & layanan</option>'+shippingOptions.map((o,i)=>{
+       const service=o.service||o.service_name||o.service_code||'REG';
+       const cost=Number(o.cost||o.shipping_cost||o.price||0);
+       const etd=o.etd||o.etd_info||'';
+       return `<option value="${i}">${esc(o.courier_name)} — ${esc(service)} — ${fmt(cost)}${etd?' · '+esc(etd):''}</option>`;
+     }).join('');
+     select.disabled=false;
+     select.onchange=()=>selectShipping(Number(select.value));
+   }catch(err){document.getElementById('shippingMsg').textContent=err.message||'Gagal mengambil tarif ongkir.'}
  }
  async function calculateAll(){
-   selectedCourier='';selectedShipping=null;shippingOptions=[];renderCourierDropdown();document.getElementById('shippingOptions').innerHTML='';document.getElementById('shippingMsg').textContent='';render();syncSubmit();
-   if(destination?.id)await loadCourierRates(selectedCourier);
+   selectedCourier='';selectedShipping=null;shippingOptions=[];renderCourierDropdown();document.getElementById('shippingMsg').textContent='';render();syncSubmit();
+   if(destination?.id)await loadCourierRates();
  }
  function selectShipping(index){
    const o=shippingOptions[index];if(!o)return;
    selectedShipping={...o,cost:Number(o.cost||o.shipping_cost||o.price||0),service:o.service||o.service_name||o.service_code||'REG',etd:o.etd||o.etd_info||''};
-   document.querySelectorAll('.shipping-option').forEach(x=>x.classList.toggle('selected',x.querySelector('input')?.checked));
-   const sel=document.getElementById('shippingService');sel.disabled=false;sel.innerHTML=`<option value="${esc(selectedShipping.service)}">${esc(selectedShipping.service)} — ${fmt(selectedShipping.cost)}${selectedShipping.etd?' · '+esc(selectedShipping.etd):''}</option>`;
+   selectedCourier=o.courier_code||'';
    document.getElementById('shippingMeta').innerHTML=`<span>${esc(selectedShipping.courier_name)} · ${esc(selectedShipping.service)}</span><span>${totalWeight()} g · ${esc(selectedShipping.etd||'ETD mengikuti kurir')}</span>`;render();syncSubmit();
  }
  document.getElementById('searchDestination').onclick=async()=>{
